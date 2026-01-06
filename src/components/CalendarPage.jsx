@@ -477,7 +477,8 @@ export default function CalendarPage() {
                 className="absolute inset-0 z-10 overflow-y-auto scrollbar-hide"
                 style={{
                     paddingTop: "calc(var(--sat) + 60px)",
-                    paddingBottom: "calc(80px + var(--sab))",
+                    // Extra bottom padding so footer + bottom nav never cover content
+                    paddingBottom: "calc(140px + var(--sab))",
                 }}
                 onTouchStart={handleTouchStart}
                 onTouchMove={handleTouchMove}

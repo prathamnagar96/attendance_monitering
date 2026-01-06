@@ -37,6 +37,7 @@ export default function TimetableEditor() {
         addSubject,
         isLoading: isStoreLoading,
         settings,                         // ✅ get settings, including periodsPerDay
+        subjects: storeSubjects,          // ✅ always read subjects from global store
     } = useAttendanceStore();
 
     const periodsPerDay = settings?.periodsPerDay ?? 6;
@@ -68,14 +69,19 @@ export default function TimetableEditor() {
         setIsDirty(true);
     }, [periodsPerDay]);
 
-    // ✅ FIXED: Get subjects from onboarding
+    // ✅ Load subjects from global store, with onboarding fallback on very first run
     useEffect(() => {
-        const data = window.onboardingComplete;
+        if (Array.isArray(storeSubjects) && storeSubjects.length > 0) {
+            setSubjects(storeSubjects);
+            return;
+        }
+
+        const data = typeof window !== "undefined" ? window.onboardingComplete : null;
         if (data?.subjects && Array.isArray(data.subjects)) {
             setSubjects(data.subjects);
-            console.log("🎉 Editor loaded subjects:", data.subjects.length);
+            console.log("🎉 Editor loaded subjects from onboarding:", data.subjects.length);
         }
-    }, []);
+    }, [storeSubjects]);
 
     // Haptic feedback
     const triggerHaptic = useCallback(() => {
