@@ -1,0 +1,56 @@
+/* src/index.css */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica,
+        Arial, sans-serif;
+    line-height: 1.5;
+    font-weight: 400;
+    --radius: 0.75rem;
+
+    /* Safe-area helpers */
+    --sat: env(safe-area-inset-top, 0px);
+    --sar: env(safe-area-inset-right, 0px);
+    --sab: env(safe-area-inset-bottom, 0px);
+    --sal: env(safe-area-inset-left, 0px);
+}
+
+/* Make percentage heights reliable */
+html,
+body,
+#root {
+    height: 100%;
+}
+
+body {
+    margin: 0;
+    background-color: #fafafa;
+    color: #262626;
+    -webkit-text-size-adjust: 100%;
+    -webkit-tap-highlight-color: transparent;
+    overscroll-behavior-y: none;
+    /* reduces iOS/Android rubber-band clash */
+}
+
+.dark body {
+    background-color: #000;
+    color: #f5f5f5;
+}
+
+* {
+    box-sizing: border-box;
+    transition: background-color 0.15s ease, border-color 0.15s ease,
+        color 0.15s ease;
+}
+
+/* Reserve space for 90px bottom nav + safe-area inset */
+.bottom-nav-safe {
+    padding-bottom: calc(90px + max(env(safe-area-inset-bottom), 20px)) !important;
+}
+
+/* Dark-mode override for onboarding background */
+.dark .onboarding-bg {
+    background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%) !important;
+}
