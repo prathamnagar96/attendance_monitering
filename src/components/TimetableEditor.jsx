@@ -35,6 +35,7 @@ export default function TimetableEditor() {
         saveTimetable,
         getTimetable,
         addSubject,
+        addSubjects,
         isLoading: isStoreLoading,
         settings,                         // ✅ get settings, including periodsPerDay
         subjects: storeSubjects,          // ✅ always read subjects from global store
@@ -49,6 +50,8 @@ export default function TimetableEditor() {
     const [savedStatus, setSavedStatus] = useState("");
     const [showSubjects, setShowSubjects] = useState(false);
     const [subjectSearch, setSubjectSearch] = useState("");
+    const [newSubjectName, setNewSubjectName] = useState("");
+    const [newSubjectType, setNewSubjectType] = useState("theory");
 
     // When periodsPerDay setting changes, resize existing timetable arrays
     useEffect(() => {
@@ -82,6 +85,42 @@ export default function TimetableEditor() {
             console.log("🎉 Editor loaded subjects from onboarding:", data.subjects.length);
         }
     }, [storeSubjects]);
+
+    // Add a new subject after onboarding from within the editor
+    const handleAddNewSubject = useCallback(async () => {
+        const name = newSubjectName.trim();
+        if (!name) {
+            alert("Enter subject name");
+            return;
+        }
+
+        const exists = subjects.some(
+            (s) => s.name.toLowerCase() === name.toLowerCase()
+        );
+        if (exists) {
+            alert("Subject already exists");
+            return;
+        }
+
+        const entry = {
+            name,
+            type: newSubjectType,
+            isPractical:
+                newSubjectType === "practical" || newSubjectType === "both",
+            trackTheory:
+                newSubjectType === "theory" || newSubjectType === "both",
+            isStrict: false,
+        };
+
+        try {
+            await addSubjects([entry]);
+            setNewSubjectName("");
+            setShowSubjects(false);
+        } catch (e) {
+            console.error("Failed to add subject from editor:", e);
+            alert("Could not add subject. Please try again.");
+        }
+    }, [newSubjectName, newSubjectType, subjects, addSubjects]);
 
     // Haptic feedback
     const triggerHaptic = useCallback(() => {
@@ -316,12 +355,76 @@ export default function TimetableEditor() {
                 {/* Subjects Button */}
                 <div className="flex items-center gap-3 mb-6">
                     <button
-                        onClick={() => setShowSubjects(true)}
+                        onClick={() => setShowSubjects((prev) => !prev)}
                         className="flex items-center gap-2 px-4 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-2xl font-semibold shadow-lg hover:shadow-xl h-14">
                         <Plus size={20} />
-                        Manage Subjects ({subjects.length})
+                        Add Subject ({subjects.length})
                     </button>
                 </div>
+
+                {showSubjects && (
+                    <div className="mb-6 bg-white/90 border border-gray-200 rounded-2xl p-4 shadow-sm">
+                        <p className="text-sm font-semibold mb-3">
+                            Add a new subject
+                        </p>
+                        <div className="space-y-3">
+                            <input
+                                type="text"
+                                value={newSubjectName}
+                                onChange={(e) => setNewSubjectName(e.target.value)}
+                                placeholder="e.g., Machine Learning"
+                                className="w-full px-3 py-2 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                            <div className="flex gap-2 text-xs">
+                                <button
+                                    type="button"
+                                    onClick={() => setNewSubjectType("theory")}
+                                    className={`flex-1 px-3 py-2 rounded-xl font-semibold border text-center ${newSubjectType === "theory"
+                                            ? "bg-blue-600 text-white border-blue-600"
+                                            : "bg-blue-50 text-blue-700 border-blue-200"
+                                        }`}
+                                >
+                                    Theory
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setNewSubjectType("practical")}
+                                    className={`flex-1 px-3 py-2 rounded-xl font-semibold border text-center ${newSubjectType === "practical"
+                                            ? "bg-purple-600 text-white border-purple-600"
+                                            : "bg-purple-50 text-purple-700 border-purple-200"
+                                        }`}
+                                >
+                                    Practical
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setNewSubjectType("both")}
+                                    className={`flex-1 px-3 py-2 rounded-xl font-semibold border text-center ${newSubjectType === "both"
+                                            ? "bg-emerald-600 text-white border-emerald-600"
+                                            : "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                        }`}
+                                >
+                                    Both
+                                </button>
+                            </div>
+                            <div className="flex gap-2 mt-2">
+                                <Button
+                                    onClick={handleAddNewSubject}
+                                    className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white text-sm py-2 rounded-xl"
+                                >
+                                    Save Subject
+                                </Button>
+                                <button
+                                    type="button"
+                                    onClick={() => setShowSubjects(false)}
+                                    className="px-4 py-2 text-xs font-semibold text-gray-600 border border-gray-300 rounded-xl bg-gray-50"
+                                >
+                                    Cancel
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 {/* ✅ REMOVED: Extra Classes Section */}
 
