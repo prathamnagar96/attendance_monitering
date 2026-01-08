@@ -30,6 +30,7 @@ export default function SettingsPage() {
         holidayDates: Array.isArray(settings?.holidayDates) ? settings.holidayDates : [],
         theme: settings?.theme || (document.documentElement.classList.contains("dark") ? "dark" : "light"),
         periodsPerDay: settings?.periodsPerDay ?? 6,   // NEW: default for local state
+        calculationMode: settings?.calculationMode || "overall",
     }));
 
 
@@ -64,6 +65,7 @@ export default function SettingsPage() {
                 settings?.theme ||
                 (document.documentElement.classList.contains("dark") ? "dark" : "light"),
             periodsPerDay: settings?.periodsPerDay ?? 6, // ✅ keep periodsPerDay in sync
+            calculationMode: settings?.calculationMode || "overall",
         });
     }, [settings]);
 
@@ -375,6 +377,40 @@ export default function SettingsPage() {
                                         background: `linear-gradient(to right, #3b82f6 0%, #3b82f6 ${(localSettings.periodsPerDay ?? 6) * 10}%, #e5e7eb ${(localSettings.periodsPerDay ?? 6) * 10}%, #e5e7eb 100%)`,
                                     }}
                                 />
+                            </div>
+
+                            {/* NEW: How final attendance is judged */}
+                            <div className="pt-3 border-t border-gray-100 dark:border-gray-800 mt-2">
+                                <p className="text-xs font-semibold mb-2 text-gray-700 dark:text-gray-200">
+                                    Final rule for attendance
+                                </p>
+                                <div className="grid grid-cols-2 gap-2 mb-2">
+                                    <button
+                                        type="button"
+                                        onClick={() => handleChange("calculationMode", "overall")}
+                                        className={`text-xs font-medium px-3 py-2 rounded-lg border transition-colors ${(localSettings.calculationMode || "overall") === "overall"
+                                                ? "bg-blue-600 text-white border-blue-600"
+                                                : "bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 border-gray-300 dark:border-gray-700"
+                                            }`}
+                                    >
+                                        Overall (avg)
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => handleChange("calculationMode", "individual")}
+                                        className={`text-xs font-medium px-3 py-2 rounded-lg border transition-colors ${(localSettings.calculationMode || "overall") === "individual"
+                                                ? "bg-blue-600 text-white border-blue-600"
+                                                : "bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 border-gray-300 dark:border-gray-700"
+                                            }`}
+                                    >
+                                        Individual
+                                    </button>
+                                </div>
+                                <p className="text-[11px] text-gray-500 dark:text-gray-400 leading-snug">
+                                    Overall: Theory and Practical are combined for the final percentage
+                                    (e.g. Practical 85% can balance Theory 65%). Individual: both Theory and
+                                    Practical must each meet their own minimum.
+                                </p>
                             </div>
                         </div>
                     </section>

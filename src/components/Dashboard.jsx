@@ -11,6 +11,7 @@ export default function Dashboard() {
     const { subjects, markAttendance, settings, getSubjectStats, semesterDays } = useAttendanceStore();
     const minTheory = settings.minAttendanceTheory || 75;
     const minPractical = settings.minAttendancePractical || 75;
+    const calculationMode = settings.calculationMode || 'overall';
     const [selectedSubject, setSelectedSubject] = useState(null);
 
     // 🔍 Helper: for a subject, analyze remaining semester
@@ -71,6 +72,7 @@ export default function Dashboard() {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
 
+        // Count unmarked past lectures
         semesterDays.forEach(day => {
             const d = new Date(day.date);
             if (d < today) {
@@ -81,9 +83,11 @@ export default function Dashboard() {
         });
 
         const uniqueNames = [...new Set(subjects.map(s => s.name.trim()))];
-        const cards = uniqueNames.map(name => {
+        const cards = [];
+
+        uniqueNames.forEach(name => {
             const instances = subjects.filter(s => s.name.trim() === name);
-            if (instances.length === 0) return null;
+            if (instances.length === 0) return;
 
             let subPresent = 0;
             let subTotal = 0;
@@ -112,38 +116,82 @@ export default function Dashboard() {
             globalPresent += subPresent;
             globalTotal += subTotal;
 
-            const percent = subTotal === 0 ? 0 : Math.round((subPresent / subTotal) * 100);
             const isStrictSubject = instances.some(s => s.isStrict);
-            const isSafe = percent >= minTheory;
-            const safeBunks = calculateSafeBunks(subPresent, subTotal, minTheory / 100);
-            const recoveryNeeded = calculateRecoveryClasses(subPresent, subTotal, minTheory / 100);
+
             const theoryPct = subTheory.t === 0 ? 0 : Math.round((subTheory.p / subTheory.t) * 100);
             const practicalPct = subPractical.t === 0 ? 0 : Math.round((subPractical.p / subPractical.t) * 100);
 
-            // 🔮 Future trajectory for this subject
+            const theorySafeBunks = subTheory.t === 0
+                ? 0
+                : calculateSafeBunks(subTheory.p, subTheory.t, minTheory / 100);
+            const theoryRecovery = subTheory.t === 0
+                ? 0
+                : calculateRecoveryClasses(subTheory.p, subTheory.t, minTheory / 100);
+
+            const practicalSafeBunks = subPractical.t === 0
+                ? 0
+                : calculateSafeBunks(subPractical.p, subPractical.t, minPractical / 100);
+            const practicalRecovery = subPractical.t === 0
+                ? 0
+                : calculateRecoveryClasses(subPractical.p, subPractical.t, minPractical / 100);
+
+            // 🔮 Future trajectory for this subject (shared for both parts)
+            const combinedPercent = subTotal === 0 ? 0 : Math.round((subPresent / subTotal) * 100);
             const future = getFutureInfo(name, subPresent, subTotal);
 
-            return {
-                name,
-                present: subPresent,
-                total: subTotal,
-                percent,
-                safeBunks,
-                recoveryNeeded,
-                isSafe,
-                instances,
-                isStrictSubject,
-                theory: { ...subTheory, percent: theoryPct },
-                practical: { ...subPractical, percent: practicalPct },
-                future,
-            };
-        }).filter(Boolean);
+            // Separate card for Theory
+            if (subTheory.t > 0) {
+                cards.push({
+                    id: `${name}-theory`,
+                    name,
+                    part: 'theory',
+                    label: 'Theory',
+                    present: subTheory.p,
+                    total: subTheory.t,
+                    percent: theoryPct,
+                    isSafe: theoryPct >= minTheory,
+                    safeBunks: theorySafeBunks,
+                    recoveryNeeded: theoryRecovery,
+                    instances,
+                    isStrictSubject,
+                    combinedPercent,
+                    future,
+                });
+            }
+
+            // Separate card for Practical
+            if (subPractical.t > 0) {
+                cards.push({
+                    id: `${name}-practical`,
+                    name,
+                    part: 'practical',
+                    label: 'Practical',
+                    present: subPractical.p,
+                    total: subPractical.t,
+                    percent: practicalPct,
+                    isSafe: practicalPct >= minPractical,
+                    safeBunks: practicalSafeBunks,
+                    recoveryNeeded: practicalRecovery,
+                    instances,
+                    isStrictSubject,
+                    combinedPercent,
+                    future,
+                });
+            }
+        });
+
+        const globalTarget = (minTheory || 75) / 100;
+        const globalPercent = globalTotal === 0 ? 100 : Math.round((globalPresent / globalTotal) * 100);
+        const globalSafeBunks = calculateSafeBunks(globalPresent, globalTotal, globalTarget);
+        const globalRecovery = calculateRecoveryClasses(globalPresent, globalTotal, globalTarget);
 
         return {
             cards,
             globalPresent,
             globalTotal,
-            globalPercent: globalTotal === 0 ? 100 : Math.round((globalPresent / globalTotal) * 100),
+            globalPercent,
+            globalSafeBunks,
+            globalRecovery,
             theory: {
                 present: globalTheoryPresent,
                 total: globalTheoryTotal,
@@ -236,11 +284,19 @@ export default function Dashboard() {
             {/* Global Stats Header */}
             <div className="bg-gradient-to-br from-blue-600 to-indigo-700 px-4 py-6">
                 <h2 className="text-white text-lg font-bold mb-4">Overall Attendance</h2>
+                <p className="text-[11px] text-blue-100 mb-3">
+                    {calculationMode === 'individual'
+                        ? 'Rule: Theory and Practical must each meet their own minimum.'
+                        : 'Rule: Theory and Practical are combined as an overall average.'}
+                </p>
                 <div className="grid grid-cols-3 gap-3">
                     <div className="bg-white/10 backdrop-blur-sm rounded-lg p-3 border border-white/20">
                         <p className="text-xs text-blue-100 mb-1">Overall</p>
                         <p className="text-2xl font-bold text-white">{stats.globalPercent}%</p>
                         <p className="text-xs text-blue-100 mt-1">{stats.globalPresent}/{stats.globalTotal}</p>
+                        <p className="text-[11px] text-blue-100 mt-1">
+                            Safe bunks (overall): <span className="font-semibold">{stats.globalSafeBunks}</span>
+                        </p>
                     </div>
                     <div className="bg-white/10 backdrop-blur-sm rounded-lg p-3 border border-white/20">
                         <p className="text-xs text-blue-100 mb-1">Theory</p>
@@ -276,7 +332,7 @@ export default function Dashboard() {
 
                     return (
                         <div
-                            key={card.name}
+                            key={card.id || `${card.name}-${card.part}`}
                             onClick={() => handleCardClick(card)}
                             className={`${bgColor} border-l-4 ${statusColor} bg-white dark:bg-gray-900 rounded-lg p-4 shadow-sm cursor-pointer hover:shadow-md transition-shadow`}
                         >
@@ -284,6 +340,11 @@ export default function Dashboard() {
                                 <div className="flex-1">
                                     <h3 className="font-bold text-base text-gray-900 dark:text-gray-100 mb-1">
                                         {card.name}
+                                        {card.label && (
+                                            <span className="ml-2 text-[11px] px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300">
+                                                {card.label}
+                                            </span>
+                                        )}
                                         {card.isStrictSubject && (
                                             <span className="ml-2 text-xs bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 px-2 py-0.5 rounded-full">
                                                 Strict
@@ -307,41 +368,26 @@ export default function Dashboard() {
                                     style={{ width: `${card.percent}%` }}
                                 />
                             </div>
-
-                            {card.theory.t > 0 && (
-                                <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400 mb-2">
-                                    <BookOpen size={14} />
-                                    <span>Theory: {card.theory.percent}% ({card.theory.p}/{card.theory.t})</span>
-                                </div>
-                            )}
-
-                            {card.practical.t > 0 && (
-                                <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400 mb-3">
-                                    <Beaker size={14} />
-                                    <span>Practical: {card.practical.percent}% ({card.practical.p}/{card.practical.t})</span>
-                                </div>
-                            )}
-
                             {card.isSafe ? (
-                                <div className="flex flex-col gap-1">
+                                <div className="flex flex-col gap-1 mt-1">
                                     <div className="flex items-center gap-2 text-sm text-green-700 dark:text-green-400 bg-green-100 dark:bg-green-900/20 rounded-lg p-2">
                                         <TrendingUp size={16} />
                                         <span className="font-medium">
-                                            Can safely bunk {card.safeBunks} class{card.safeBunks !== 1 ? 'es' : ''}.
+                                            You can safely bunk {card.safeBunks} class{card.safeBunks !== 1 ? 'es' : ''} in this {card.label || 'subject'}.
                                         </span>
                                     </div>
                                     {card.future.bunkBoundaryDate && (
                                         <p className="text-xs text-green-700 dark:text-green-300 mt-1">
-                                            From <span className="font-semibold">{card.future.bunkBoundaryDate}</span> you must attend all remaining classes to stay above {minTheory}%.
+                                            From <span className="font-semibold">{card.future.bunkBoundaryDate}</span> you must attend all remaining classes to stay above the target.
                                         </p>
                                     )}
                                 </div>
                             ) : (
-                                <div className="flex flex-col gap-1">
+                                <div className="flex flex-col gap-1 mt-1">
                                     <div className="flex items-center gap-2 text-sm text-red-700 dark:text-red-400 bg-red-100 dark:bg-red-900/20 rounded-lg p-2">
                                         <TrendingDown size={16} />
                                         <span className="font-medium">
-                                            Need {card.recoveryNeeded} more class{card.recoveryNeeded !== 1 ? 'es' : ''} to recover.
+                                            Need {card.recoveryNeeded} more class{card.recoveryNeeded !== 1 ? 'es' : ''} to recover in this {card.label || 'subject'}.
                                         </span>
                                     </div>
                                     {card.future.remainingLectures > 0 && (

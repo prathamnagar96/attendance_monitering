@@ -480,19 +480,44 @@ export const useAttendanceStore = create((set, get) => ({
         const { subjects, settings, getSubjectStats } = get();
         const minTheory = settings.minAttendanceTheory || 75;
         const minPractical = settings.minAttendancePractical || 75;
+        const mode = settings.calculationMode || 'overall';
 
         subjects.forEach(sub => {
-            const stats = getSubjectStats(sub.id);
-            if (stats.theory && stats.theory.total > 0) {
-                const theoryPercent = stats.theory.percent;
-                if (theoryPercent < minTheory && theoryPercent >= minTheory - 5) {
-                    scheduleNotification(`Warning: ${sub.name} (Theory) is at ${theoryPercent}%. Attend the next class!`);
+            const stats = getSubjectStats(sub.id) || {};
+
+            // Fallback-safe percent calculations
+            const total = stats.total || 0;
+            const present = stats.present || 0;
+            const overallPercent = total === 0 ? 100 : Math.round((present / total) * 100);
+
+            const theoryTotal = stats.theory?.total || 0;
+            const theoryPresent = stats.theory?.present || 0;
+            const theoryPercent =
+                stats.theory?.percent ?? (theoryTotal === 0 ? 100 : Math.round((theoryPresent / theoryTotal) * 100));
+
+            const practicalTotal = stats.practical?.total || 0;
+            const practicalPresent = stats.practical?.present || 0;
+            const practicalPercent =
+                stats.practical?.percent ?? (practicalTotal === 0 ? 100 : Math.round((practicalPresent / practicalTotal) * 100));
+
+            if (mode === 'individual') {
+                // Each component must individually be near/above its own minimum
+                if (theoryTotal > 0 && theoryPercent < minTheory && theoryPercent >= minTheory - 5) {
+                    scheduleNotification(
+                        `Warning: ${sub.name} (Theory) is at ${theoryPercent}%. Attend the next class!`
+                    );
                 }
-            }
-            if (stats.practical && stats.practical.total > 0) {
-                const practicalPercent = stats.practical.percent;
-                if (practicalPercent < minPractical && practicalPercent >= minPractical - 5) {
-                    scheduleNotification(`Warning: ${sub.name} (Practical) is at ${practicalPercent}%. Attend the next class!`);
+                if (practicalTotal > 0 && practicalPercent < minPractical && practicalPercent >= minPractical - 5) {
+                    scheduleNotification(
+                        `Warning: ${sub.name} (Practical) is at ${practicalPercent}%. Attend the next class!`
+                    );
+                }
+            } else {
+                // Overall mode: theory + practical combined for final rule
+                if (total > 0 && overallPercent < minTheory && overallPercent >= minTheory - 5) {
+                    scheduleNotification(
+                        `Warning: ${sub.name} overall attendance is at ${overallPercent}%. Attend the next class!`
+                    );
                 }
             }
         });
