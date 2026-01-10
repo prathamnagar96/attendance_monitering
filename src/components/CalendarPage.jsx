@@ -133,7 +133,9 @@ function StatusButton({ active, tone, children, onClick, ariaLabel }) {
             ? "bg-green-600 text-white border-transparent"
             : tone === "red"
                 ? "bg-red-600 text-white border-transparent"
-                : "bg-blue-600 text-white border-transparent";
+                : tone === "yellow"
+                    ? "bg-yellow-500 text-white border-transparent"
+                    : "bg-blue-600 text-white border-transparent";
 
     const handleClick = () => {
         triggerHaptic("light");
@@ -730,6 +732,15 @@ export default function CalendarPage() {
                                                             ariaLabel={`Mark ${subjectName} as duty`}
                                                         >
                                                             Duty
+                                                        </StatusButton>
+
+                                                        <StatusButton
+                                                            tone="yellow"
+                                                            active={eff === LectureStatus.CANCELLED}
+                                                            onClick={() => onSetStatus(subjectName, LectureStatus.CANCELLED)}
+                                                            ariaLabel={`Mark ${subjectName} as cancelled`}
+                                                        >
+                                                            Cancelled
                                                         </StatusButton>
                                                     </div>
 

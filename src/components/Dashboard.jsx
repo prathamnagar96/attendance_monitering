@@ -425,7 +425,7 @@ export default function Dashboard() {
                                         <div key={idx} className="border border-gray-200 dark:border-gray-700 rounded-lg p-3 bg-gray-50 dark:bg-gray-800">
                                             <p className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">{slot.type}</p>
                                             <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">Status: {slot.attended}</p>
-                                            <div className="grid grid-cols-3 gap-2">
+                                            <div className="grid grid-cols-4 gap-2">
                                                 <button
                                                     onClick={() => markSlot(idx, 'Present')}
                                                     className="py-2 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 hover:bg-green-100 dark:hover:bg-green-900/40 rounded-lg text-xs font-medium flex items-center justify-center gap-1 transition-colors"
@@ -443,6 +443,12 @@ export default function Dashboard() {
                                                     className="py-2 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/40 rounded-lg text-xs font-medium flex items-center justify-center gap-1 transition-colors"
                                                 >
                                                     <ShieldOff size={14} /> Duty
+                                                </button>
+                                                <button
+                                                    onClick={() => markSlot(idx, 'Cancelled')}
+                                                    className="py-2 bg-yellow-50 dark:bg-yellow-900/20 text-yellow-700 dark:text-yellow-400 hover:bg-yellow-100 dark:hover:bg-yellow-900/40 rounded-lg text-xs font-medium flex items-center justify-center gap-1 transition-colors"
+                                                >
+                                                    Cancelled
                                                 </button>
                                             </div>
                                         </div>
