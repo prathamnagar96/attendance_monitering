@@ -184,14 +184,21 @@ export const useAttendanceStore = create((set, get) => ({
 
             day.lectures.forEach(lec => {
                 const subName = typeof lec.subject === 'string' ? lec.subject : lec.subject.name;
+                const logKey = `${subName}#${lec.isPractical ? 'P' : 'T'}`;
 
-                if (dayLog && dayLog[subName]) {
-                    lec.status = dayLog[subName];
+                if (dayLog) {
+                    const stored = dayLog[logKey] ?? dayLog[subName]; // fallback for old data
+                    if (stored) {
+                        lec.status = stored;
+                    }
                 }
 
-                const noteKey = `${dKey}-${subName}`;
-                if (notes[noteKey]) {
-                    lec.note = notes[noteKey];
+                const noteKeyNew = `${dKey}-${logKey}`;
+                const noteKeyOld = `${dKey}-${subName}`;
+                if (notes[noteKeyNew]) {
+                    lec.note = notes[noteKeyNew];
+                } else if (notes[noteKeyOld]) {
+                    lec.note = notes[noteKeyOld];
                 }
             });
         });

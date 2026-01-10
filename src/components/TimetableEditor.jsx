@@ -310,12 +310,12 @@ export default function TimetableEditor() {
 
     if (loading) {
         return (
-            <div className="fixed inset-0 bg-gradient-to-br from-blue-50 to-indigo-50 flex items-center justify-center p-8">
+            <div className="fixed inset-0 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-gray-950 dark:to-gray-900 flex items-center justify-center p-8">
                 <div className="animate-pulse space-y-4 w-full max-w-md">
-                    <div className="h-32 bg-white/50 rounded-2xl animate-pulse" />
+                    <div className="h-32 bg-white/50 dark:bg-gray-800/60 rounded-2xl animate-pulse" />
                     <div className="space-y-3">
                         {[...Array(7)].map((_, i) => (
-                            <div key={i} className="h-24 bg-white/30 rounded-xl animate-pulse" />
+                            <div key={i} className="h-24 bg-white/30 dark:bg-gray-800/40 rounded-xl animate-pulse" />
                         ))}
                     </div>
                 </div>
@@ -326,22 +326,22 @@ export default function TimetableEditor() {
     return (
         <>
             {/* Header */}
-            <div className="fixed top-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-b shadow-sm"
+            <div className="fixed top-0 left-0 right-0 z-40 bg-white/95 dark:bg-gray-900/95 backdrop-blur-md border-b dark:border-gray-800 shadow-sm"
                 style={{ paddingTop: "var(--sat, 0px)" }}>
                 <div className="px-4 py-3 flex items-center justify-between h-[60px]">
                     <button
                         onClick={() => navigate(-1)}
-                        className="p-3 hover:bg-gray-100 rounded-xl h-11 w-11 flex items-center justify-center"
+                        className="p-3 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl h-11 w-11 flex items-center justify-center text-gray-800 dark:text-gray-100"
                         aria-label="Go back">
                         <ArrowLeft size={20} />
                     </button>
-                    <h1 className="text-lg font-bold uppercase tracking-tight flex-1 text-center">
+                    <h1 className="text-lg font-bold uppercase tracking-tight flex-1 text-center text-gray-900 dark:text-gray-100">
                         Timetable Editor
                     </h1>
                     <button
                         onClick={handleSave}
                         disabled={!isDirty}
-                        className="p-3 text-blue-600 disabled:text-gray-400 font-semibold text-sm uppercase h-11 w-11 flex items-center justify-center hover:bg-blue-50 rounded-xl disabled:hover:bg-transparent">
+                        className="p-3 text-blue-600 dark:text-blue-400 disabled:text-gray-400 dark:disabled:text-gray-600 font-semibold text-sm uppercase h-11 w-11 flex items-center justify-center hover:bg-blue-50 dark:hover:bg-blue-900/40 rounded-xl disabled:hover:bg-transparent">
                         <Save size={18} />
                     </button>
                 </div>
@@ -349,7 +349,7 @@ export default function TimetableEditor() {
 
             {/* Main Content */}
             <div
-                className="p-4 pb-40 space-y-6 min-h-screen"
+                className="p-4 pb-40 space-y-6 min-h-screen bg-gray-50 dark:bg-black text-gray-900 dark:text-gray-100"
                 style={{ paddingTop: "calc(var(--sat, 0px) + 60px)" }}
             >
                 {/* Subjects Button */}
@@ -363,8 +363,8 @@ export default function TimetableEditor() {
                 </div>
 
                 {showSubjects && (
-                    <div className="mb-6 bg-white/90 border border-gray-200 rounded-2xl p-4 shadow-sm">
-                        <p className="text-sm font-semibold mb-3">
+                    <div className="mb-6 bg-white/90 dark:bg-gray-900/90 border border-gray-200 dark:border-gray-700 rounded-2xl p-4 shadow-sm">
+                        <p className="text-sm font-semibold mb-3 text-gray-800 dark:text-gray-100">
                             Add a new subject
                         </p>
                         <div className="space-y-3">
@@ -373,15 +373,15 @@ export default function TimetableEditor() {
                                 value={newSubjectName}
                                 onChange={(e) => setNewSubjectName(e.target.value)}
                                 placeholder="e.g., Machine Learning"
-                                className="w-full px-3 py-2 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500"
                             />
                             <div className="flex gap-2 text-xs">
                                 <button
                                     type="button"
                                     onClick={() => setNewSubjectType("theory")}
                                     className={`flex-1 px-3 py-2 rounded-xl font-semibold border text-center ${newSubjectType === "theory"
-                                            ? "bg-blue-600 text-white border-blue-600"
-                                            : "bg-blue-50 text-blue-700 border-blue-200"
+                                        ? "bg-blue-600 text-white border-blue-600"
+                                        : "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-200 dark:border-blue-900"
                                         }`}
                                 >
                                     Theory
@@ -390,8 +390,8 @@ export default function TimetableEditor() {
                                     type="button"
                                     onClick={() => setNewSubjectType("practical")}
                                     className={`flex-1 px-3 py-2 rounded-xl font-semibold border text-center ${newSubjectType === "practical"
-                                            ? "bg-purple-600 text-white border-purple-600"
-                                            : "bg-purple-50 text-purple-700 border-purple-200"
+                                        ? "bg-purple-600 text-white border-purple-600"
+                                        : "bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950 dark:text-purple-200 dark:border-purple-900"
                                         }`}
                                 >
                                     Practical
@@ -400,8 +400,8 @@ export default function TimetableEditor() {
                                     type="button"
                                     onClick={() => setNewSubjectType("both")}
                                     className={`flex-1 px-3 py-2 rounded-xl font-semibold border text-center ${newSubjectType === "both"
-                                            ? "bg-emerald-600 text-white border-emerald-600"
-                                            : "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                        ? "bg-emerald-600 text-white border-emerald-600"
+                                        : "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-200 dark:border-emerald-900"
                                         }`}
                                 >
                                     Both
@@ -417,7 +417,7 @@ export default function TimetableEditor() {
                                 <button
                                     type="button"
                                     onClick={() => setShowSubjects(false)}
-                                    className="px-4 py-2 text-xs font-semibold text-gray-600 border border-gray-300 rounded-xl bg-gray-50"
+                                    className="px-4 py-2 text-xs font-semibold text-gray-600 dark:text-gray-200 border border-gray-300 dark:border-gray-700 rounded-xl bg-gray-50 dark:bg-gray-900"
                                 >
                                     Cancel
                                 </button>
@@ -431,8 +431,8 @@ export default function TimetableEditor() {
                 {/* Timetable Grid */}
                 <div className="space-y-3">
                     {DAYS.map((day) => (
-                        <div key={day} className="bg-white/70 backdrop-blur-sm border rounded-2xl p-6 shadow-xl hover:shadow-2xl">
-                            <h3 className="font-bold text-lg uppercase tracking-widest mb-6 flex items-center gap-3 pb-4 border-b">
+                        <div key={day} className="bg-white/70 dark:bg-gray-900/70 backdrop-blur-sm border dark:border-gray-800 rounded-2xl p-6 shadow-xl hover:shadow-2xl">
+                            <h3 className="font-bold text-lg uppercase tracking-widest mb-6 flex items-center gap-3 pb-4 border-b border-gray-200 dark:border-gray-800">
                                 {day}
                             </h3>
                             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
@@ -447,13 +447,13 @@ export default function TimetableEditor() {
                                     return (
                                         <div
                                             key={period}
-                                            className="relative bg-gradient-to-br from-gray-50 to-white border rounded-xl p-3 flex flex-col justify-between min-h-[120px] sm:min-h-[100px]"
+                                            className="relative bg-gradient-to-br from-gray-50 to-white dark:from-gray-900 dark:to-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-3 flex flex-col justify-between min-h-[120px] sm:min-h-[100px]"
                                         >
-                                            <div className="text-xs font-semibold text-gray-500 mb-1">
+                                            <div className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">
                                                 Period {period}
                                             </div>
                                             <select
-                                                className="w-full text-sm bg-white border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                className="w-full text-sm bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                                                 value={cell?.name || ""}
                                                 onChange={(e) => {
                                                     const name = e.target.value;
@@ -476,7 +476,7 @@ export default function TimetableEditor() {
                                             </select>
 
                                             {cell?.name && (
-                                                <div className="mt-2 flex items-center justify-between gap-2 pt-1 border-t border-gray-100">
+                                                <div className="mt-2 flex items-center justify-between gap-2 pt-1 border-t border-gray-100 dark:border-gray-800">
                                                     {subjectType === "both" ? (
                                                         <div className="flex gap-1">
                                                             <button
@@ -484,7 +484,7 @@ export default function TimetableEditor() {
                                                                 onClick={() => updateCell(day, idx, { ...cell, slotMode: "theory", isPractical: false })}
                                                                 className={`px-2 py-1 text-xs rounded-full font-semibold ${slotMode === "theory"
                                                                     ? "bg-blue-600 text-white"
-                                                                    : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                                                                    : "bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
                                                                     }`}
                                                             >
                                                                 Theory
@@ -494,20 +494,20 @@ export default function TimetableEditor() {
                                                                 onClick={() => updateCell(day, idx, { ...cell, slotMode: "practical", isPractical: true })}
                                                                 className={`px-2 py-1 text-xs rounded-full font-semibold ${slotMode === "practical"
                                                                     ? "bg-purple-600 text-white"
-                                                                    : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                                                                    : "bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
                                                                     }`}
                                                             >
                                                                 Practical
                                                             </button>
                                                         </div>
                                                     ) : (
-                                                        <span className="text-xs px-2 py-1 bg-gray-100 rounded-full font-semibold">
+                                                        <span className="text-xs px-2 py-1 bg-gray-100 dark:bg-gray-800 rounded-full font-semibold">
                                                             {cell?.isPractical ? "Practical" : "Theory"}
                                                         </span>
                                                     )}
                                                     <button
                                                         onClick={() => clearCell(day, idx)}
-                                                        className="p-1.5 hover:bg-red-50 rounded-lg transition-colors"
+                                                        className="p-1.5 hover:bg-red-50 dark:hover:bg-red-900/40 rounded-lg transition-colors"
                                                         title="Clear slot">
                                                         <Trash2 size={14} className="text-red-500" />
                                                     </button>
@@ -524,7 +524,7 @@ export default function TimetableEditor() {
 
             {/* Bottom Save Bar */}
             <div
-                className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t shadow-2xl"
+                className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-gray-900/95 backdrop-blur-md border-t dark:border-gray-800 shadow-2xl"
                 style={{
                     // Place bar just above bottom nav + safe area
                     bottom: "calc(64px + var(--sab, 0px))",

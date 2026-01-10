@@ -243,14 +243,14 @@ export default function CalendarPage() {
         return m;
     }, [subjects]);
 
-    const effectiveStatusFor = (dateStr, subjectName, fallback) => {
-        const simKey = `${dateStr}-${subjectName}`;
+    const effectiveStatusFor = (dateStr, subjectKey, fallback) => {
+        const simKey = `${dateStr}-${subjectKey}`;
         if (isSimulationMode && simulationChanges?.[simKey]) {
             return simulationChanges[simKey];
         }
 
-        if (history?.[dateStr]?.[subjectName]) {
-            return history[dateStr][subjectName];
+        if (history?.[dateStr]?.[subjectKey]) {
+            return history[dateStr][subjectKey];
         }
 
         return fallback || LectureStatus.UPCOMING;
@@ -268,7 +268,8 @@ export default function CalendarPage() {
                     typeof lec.subject === "string" ? lec.subject : lec.subject?.name;
                 if (!subjectName) return;
 
-                const st = effectiveStatusFor(dateStr, subjectName, lec.status);
+                const logKey = `${subjectName}#${lec.isPractical ? 'P' : 'T'}`;
+                const st = effectiveStatusFor(dateStr, logKey, lec.status);
                 total++;
 
                 if (st === LectureStatus.PRESENT) p++;
@@ -320,8 +321,8 @@ export default function CalendarPage() {
         setToastVisible(true);
     };
 
-    const onSetStatus = async (subjectName, status) => {
-        if (!subjectName) return;
+    const onSetStatus = async (subjectKey, status) => {
+        if (!subjectKey) return;
 
         // Future date check for non-preview mode
         if (!isSimulationMode) {
@@ -339,28 +340,72 @@ export default function CalendarPage() {
         triggerHaptic("medium");
 
         if (isSimulationMode) {
-            toggleSimulation(selectedDate, subjectName, status);
+            toggleSimulation(selectedDate, subjectKey, status);
             return;
         }
 
-        const noteKey = `${selectedDate}-${subjectName}`;
+        const noteKey = `${selectedDate}-${subjectKey}`;
         const existingNote = notes?.[noteKey] || "";
         try {
-            await markAttendance(selectedDate, subjectName, status, existingNote);
+            await markAttendance(selectedDate, subjectKey, status, existingNote);
         } catch (e) {
             showToast(e.message || "Cannot save this attendance change.");
         }
     };
 
-    const onSetNote = async (subjectName, text) => {
-        if (isSimulationMode) return;
+    const applyStatusAll = async (status) => {
+        if (!selectedDate || lectures.length === 0) return;
 
-        const noteKey = `${selectedDate}-${subjectName}`;
-        const existingStatus =
-            history?.[selectedDate]?.[subjectName] || LectureStatus.UPCOMING;
+        // Future date check for non-preview mode
+        if (!isSimulationMode) {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const targetDate = new Date(selectedDate);
+            targetDate.setHours(0, 0, 0, 0);
+
+            if (targetDate > today) {
+                showToast("Future dates → Preview mode only (not saved permanently)");
+                return;
+            }
+        }
+
+        triggerHaptic("medium");
+
+        if (isSimulationMode) {
+            lectures.forEach((lec) => {
+                const subjectName = typeof lec.subject === "string" ? lec.subject : lec.subject?.name;
+                if (!subjectName) return;
+                const logKey = `${subjectName}#${lec.isPractical ? 'P' : 'T'}`;
+                toggleSimulation(selectedDate, logKey, status);
+            });
+            showToast(`Preview: all lectures marked ${status}.`);
+            return;
+        }
 
         try {
-            await markAttendance(selectedDate, subjectName, existingStatus, text);
+            for (const lec of lectures) {
+                const subjectName = typeof lec.subject === "string" ? lec.subject : lec.subject?.name;
+                if (!subjectName) continue;
+                const logKey = `${subjectName}#${lec.isPractical ? 'P' : 'T'}`;
+                const noteKey = `${selectedDate}-${logKey}`;
+                const existingNote = notes?.[noteKey] || "";
+                await markAttendance(selectedDate, logKey, status, existingNote);
+            }
+            showToast(`All lectures marked ${status}.`);
+        } catch (e) {
+            showToast(e.message || "Could not update all lectures.");
+        }
+    };
+
+    const onSetNote = async (subjectKey, text) => {
+        if (isSimulationMode) return;
+
+        const noteKey = `${selectedDate}-${subjectKey}`;
+        const existingStatus =
+            history?.[selectedDate]?.[subjectKey] || LectureStatus.UPCOMING;
+
+        try {
+            await markAttendance(selectedDate, subjectKey, existingStatus, text);
         } catch (e) {
             showToast(e.message || "Cannot save note.");
         }
@@ -663,9 +708,44 @@ export default function CalendarPage() {
                                 className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg p-4 shadow-sm"
                                 aria-label="Lectures for selected date"
                             >
-                                <p className="text-sm font-bold mb-3">
-                                    {selectedDate} {hasSemesterDay ? "" : "(Outside semester range)"}
-                                </p>
+                                <div className="flex items-center justify-between mb-3 gap-2 flex-wrap">
+                                    <p className="text-sm font-bold">
+                                        {selectedDate} {hasSemesterDay ? "" : "(Outside semester range)"}
+                                    </p>
+
+                                    {!isLoading && lectures.length > 0 && (
+                                        <div className="flex flex-wrap gap-1 justify-end text-[11px]">
+                                            <button
+                                                type="button"
+                                                onClick={() => applyStatusAll(LectureStatus.PRESENT)}
+                                                className="px-2 py-1 rounded-full bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 font-semibold"
+                                            >
+                                                Present all
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => applyStatusAll(LectureStatus.ABSENT)}
+                                                className="px-2 py-1 rounded-full bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 font-semibold"
+                                            >
+                                                Absent all
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => applyStatusAll(LectureStatus.DUTY)}
+                                                className="px-2 py-1 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-semibold"
+                                            >
+                                                Duty all
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => applyStatusAll(LectureStatus.CANCELLED)}
+                                                className="px-2 py-1 rounded-full bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 font-semibold"
+                                            >
+                                                Cancel all
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
 
                                 {isLoading ? (
                                     <LecturesLoadingSkeleton />
@@ -680,8 +760,9 @@ export default function CalendarPage() {
                                                 typeof lec.subject === "string" ? lec.subject : lec.subject?.name;
                                             if (!subjectName) return null;
 
-                                            const eff = effectiveStatusFor(selectedDate, subjectName, lec.status);
-                                            const noteKey = `${selectedDate}-${subjectName}`;
+                                            const logKey = `${subjectName}#${lec.isPractical ? 'P' : 'T'}`;
+                                            const eff = effectiveStatusFor(selectedDate, logKey, lec.status);
+                                            const noteKey = `${selectedDate}-${logKey}`;
                                             const currentNote = notes?.[noteKey] || "";
 
                                             return (
@@ -710,7 +791,7 @@ export default function CalendarPage() {
                                                         <StatusButton
                                                             tone="green"
                                                             active={eff === LectureStatus.PRESENT}
-                                                            onClick={() => onSetStatus(subjectName, LectureStatus.PRESENT)}
+                                                            onClick={() => onSetStatus(logKey, LectureStatus.PRESENT)}
                                                             ariaLabel={`Mark ${subjectName} as present`}
                                                         >
                                                             Present
@@ -719,7 +800,7 @@ export default function CalendarPage() {
                                                         <StatusButton
                                                             tone="red"
                                                             active={eff === LectureStatus.ABSENT}
-                                                            onClick={() => onSetStatus(subjectName, LectureStatus.ABSENT)}
+                                                            onClick={() => onSetStatus(logKey, LectureStatus.ABSENT)}
                                                             ariaLabel={`Mark ${subjectName} as absent`}
                                                         >
                                                             Absent
@@ -728,7 +809,7 @@ export default function CalendarPage() {
                                                         <StatusButton
                                                             tone="blue"
                                                             active={eff === LectureStatus.DUTY}
-                                                            onClick={() => onSetStatus(subjectName, LectureStatus.DUTY)}
+                                                            onClick={() => onSetStatus(logKey, LectureStatus.DUTY)}
                                                             ariaLabel={`Mark ${subjectName} as duty`}
                                                         >
                                                             Duty
@@ -737,7 +818,7 @@ export default function CalendarPage() {
                                                         <StatusButton
                                                             tone="yellow"
                                                             active={eff === LectureStatus.CANCELLED}
-                                                            onClick={() => onSetStatus(subjectName, LectureStatus.CANCELLED)}
+                                                            onClick={() => onSetStatus(logKey, LectureStatus.CANCELLED)}
                                                             ariaLabel={`Mark ${subjectName} as cancelled`}
                                                         >
                                                             Cancelled
@@ -751,7 +832,7 @@ export default function CalendarPage() {
                                                         <input
                                                             id={`note-${subjectName}-${idx}`}
                                                             value={currentNote}
-                                                            onChange={(e) => onSetNote(subjectName, e.target.value)}
+                                                            onChange={(e) => onSetNote(logKey, e.target.value)}
                                                             placeholder="Duty reason / note"
                                                             disabled={isSimulationMode}
                                                             className="w-full px-3 py-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-blue-500"

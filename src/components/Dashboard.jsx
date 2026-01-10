@@ -209,20 +209,25 @@ export default function Dashboard() {
     const getTodaySlots = (instances) => {
         const todayKeyLocal = dateKey(new Date());
         const slots = [];
-        instances.forEach(inst => {
-            const dayData = semesterDays.find(d => d.date === todayKeyLocal);
-            if (dayData) {
-                dayData.lectures.forEach(l => {
-                    if (l.subject === inst.name || l.subject?.name === inst.name) {
-                        slots.push({
-                            subjectId: inst.id,
-                            time: 'Today',
-                            type: l.isPractical ? 'Practical' : 'Lecture',
-                            attended: l.status
-                        });
-                    }
-                });
-            }
+        const dayData = semesterDays.find(d => d.date === todayKeyLocal);
+        if (!dayData) return slots;
+
+        dayData.lectures.forEach(l => {
+            const name = typeof l.subject === 'string' ? l.subject : l.subject?.name;
+            if (!name) return;
+
+            const owningInstance = instances.find(inst => inst.name === name);
+            if (!owningInstance) return;
+
+            const logKey = `${name}#${l.isPractical ? 'P' : 'T'}`;
+            slots.push({
+                subjectId: owningInstance.id,
+                subjectName: name,
+                logKey,
+                time: 'Today',
+                type: l.isPractical ? 'Practical' : 'Lecture',
+                attended: l.status
+            });
         });
         return slots;
     };
@@ -232,7 +237,7 @@ export default function Dashboard() {
         setSelectedSubject({ name: card.name, slots: todaySlots });
     };
 
-    // ✅ FIX: Mark using subjectId (store’s second signature) + error handling
+    // Mark today’s slot using per-lecture key so theory/practical are independent
     const markSlot = async (slotIndex, status) => {
         if (!selectedSubject) return;
         const slot = selectedSubject.slots[slotIndex];
@@ -245,8 +250,8 @@ export default function Dashboard() {
         }
 
         try {
-            // Use subjectId variant, date = today inside store
-            await markAttendance(slot.subjectId, status, note);
+            const todayKeyLocal = dateKey(new Date());
+            await markAttendance(todayKeyLocal, slot.logKey, status, note);
 
             // Keep modal UI in sync
             setSelectedSubject(prev => ({

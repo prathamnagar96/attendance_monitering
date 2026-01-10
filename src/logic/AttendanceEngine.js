@@ -166,7 +166,8 @@ const isConducted = (status, dateStr) => {
 };
 
 const isAttended = (status, dateStr) => {
-    if (status === LectureStatus.PRESENT || status === LectureStatus.DUTY) {
+    // Duty should NOT be treated as present; only real presence counts.
+    if (status === LectureStatus.PRESENT) {
         return true;
     }
 
@@ -209,11 +210,6 @@ export function computeAttendanceStats(days, opts = {}) {
     let theory = { present: 0, total: 0 };
     let practical = { present: 0, total: 0 };
 
-    const allLectures = days.flatMap((d) => d.lectures);
-    const subjectLectures = subjectName
-        ? allLectures.filter((l) => getSubjectName(l) === subjectName)
-        : allLectures;
-
     days.forEach((day) => {
         // day.date is now a string "YYYY-MM-DD"
         const dKey = day.date;
@@ -224,9 +220,9 @@ export function computeAttendanceStats(days, opts = {}) {
 
             let effectiveStatus = lec.status;
 
-            // Simulation Override
+            // Simulation Override – per-lecture key (subject + theory/practical)
             if (simulationOverrides) {
-                const simKey = `${dKey}-${lecSubName}`;
+                const simKey = `${dKey}-${lecSubName}#${lec.isPractical ? 'P' : 'T'}`;
                 if (simulationOverrides[simKey]) {
                     effectiveStatus = simulationOverrides[simKey];
                 }
