@@ -180,8 +180,23 @@ export default function Dashboard() {
             }
         });
 
+        // Global theory/practical percentages
+        const globalTheoryPercent =
+            globalTheoryTotal === 0 ? 100 : Math.round((globalTheoryPresent / globalTheoryTotal) * 100);
+        const globalPracticalPercent =
+            globalPracticalTotal === 0 ? 100 : Math.round((globalPracticalPresent / globalPracticalTotal) * 100);
+
+        // Overall attendance should be the average of theory and practical
+        const percentParts = [];
+        if (globalTheoryTotal > 0) percentParts.push(globalTheoryPercent);
+        if (globalPracticalTotal > 0) percentParts.push(globalPracticalPercent);
+        const globalPercent =
+            percentParts.length === 0
+                ? 100
+                : Math.round(percentParts.reduce((sum, v) => sum + v, 0) / percentParts.length);
+
+        // Safe bunks / recovery are still based on combined counts against the main threshold
         const globalTarget = (minTheory || 75) / 100;
-        const globalPercent = globalTotal === 0 ? 100 : Math.round((globalPresent / globalTotal) * 100);
         const globalSafeBunks = calculateSafeBunks(globalPresent, globalTotal, globalTarget);
         const globalRecovery = calculateRecoveryClasses(globalPresent, globalTotal, globalTarget);
 
@@ -195,14 +210,14 @@ export default function Dashboard() {
             theory: {
                 present: globalTheoryPresent,
                 total: globalTheoryTotal,
-                percent: globalTheoryTotal === 0 ? 100 : Math.round((globalTheoryPresent / globalTheoryTotal) * 100)
+                percent: globalTheoryPercent,
             },
             practical: {
                 present: globalPracticalPresent,
                 total: globalPracticalTotal,
-                percent: globalPracticalTotal === 0 ? 100 : Math.round((globalPracticalPresent / globalPracticalTotal) * 100)
+                percent: globalPracticalPercent,
             },
-            unmarkedCount
+            unmarkedCount,
         };
     }, [subjects, semesterDays, getSubjectStats, minTheory, minPractical, getFutureInfo]);
 
@@ -315,6 +330,21 @@ export default function Dashboard() {
                     </div>
                 </div>
 
+                {/* Show either safe bunks or required classes based on overall status */}
+                <p className="text-[11px] text-blue-100 mt-2">
+                    {stats.globalRecovery > 0 ? (
+                        <>
+                            Need <span className="font-semibold">{stats.globalRecovery}</span> more
+                            {" "}
+                            class{stats.globalRecovery !== 1 ? "es" : ""} overall to reach the minimum.
+                        </>
+                    ) : (
+                        <>
+                            Safe bunks (overall):{" "}
+                            <span className="font-semibold">{stats.globalSafeBunks}</span>
+                        </>
+                    )}
+                </p>
                 {stats.unmarkedCount > 0 && (
                     <div className="mt-4 bg-yellow-500/20 backdrop-blur-sm border border-yellow-400/30 rounded-lg p-3 flex items-start gap-2">
                         <AlertTriangle size={18} className="text-yellow-300 flex-shrink-0 mt-0.5" />

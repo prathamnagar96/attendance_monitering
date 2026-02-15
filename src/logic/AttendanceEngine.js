@@ -247,9 +247,17 @@ export function computeAttendanceStats(days, opts = {}) {
         });
     });
 
-    const attendancePercent = total === 0 ? 100 : Math.round((present / total) * 100);
     const theoryPercent = theory.total === 0 ? 100 : Math.round((theory.present / theory.total) * 100);
     const practicalPercent = practical.total === 0 ? 100 : Math.round((practical.present / practical.total) * 100);
+
+    // Overall attendance is defined as the average of theory and practical percentages
+    const overallParts = [];
+    if (theory.total > 0) overallParts.push(theoryPercent);
+    if (practical.total > 0) overallParts.push(practicalPercent);
+    const attendancePercent =
+        overallParts.length === 0
+            ? 100
+            : Math.round(overallParts.reduce((sum, v) => sum + v, 0) / overallParts.length);
 
     const theoryTarget = minAttendanceTheory / 100;
     const practicalTarget = minAttendancePractical / 100;
