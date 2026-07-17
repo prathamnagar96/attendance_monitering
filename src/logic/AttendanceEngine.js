@@ -129,6 +129,17 @@ export function generateSemester(startStr, endStr, weeklyTimetable, options = {}
             }
         });
 
+        // Assign unique logKey to each lecture within the day
+        const keyCounter = {};
+        dayObj.lectures.forEach((lec) => {
+            const subName = typeof lec.subject === 'string' ? lec.subject : lec.subject?.name || 'Unknown';
+            const baseKey = `${subName}#${lec.isPractical ? 'P' : 'T'}`;
+            const count = keyCounter[baseKey] || 0;
+            keyCounter[baseKey] = count + 1;
+            // First occurrence keeps the original key for backward compat; duplicates get #1, #2, etc.
+            lec.logKey = count === 0 ? baseKey : `${baseKey}#${count}`;
+        });
+
         // Next day
         current.setDate(current.getDate() + 1);
     }
@@ -199,6 +210,7 @@ export function computeAttendanceStats(days, opts = {}) {
         subjectName,
         minAttendanceTheory = 75,
         minAttendancePractical = 75,
+        overallMinimum = 75,
         simulationOverrides = null
     } = opts;
 
@@ -261,7 +273,7 @@ export function computeAttendanceStats(days, opts = {}) {
 
     const theoryTarget = minAttendanceTheory / 100;
     const practicalTarget = minAttendancePractical / 100;
-    const overallTarget = theoryTarget;
+    const overallTarget = overallMinimum / 100;
 
     return {
         present,

@@ -11,6 +11,7 @@ export default function Dashboard() {
     const { subjects, markAttendance, settings, getSubjectStats, semesterDays } = useAttendanceStore();
     const minTheory = settings.minAttendanceTheory || 75;
     const minPractical = settings.minAttendancePractical || 75;
+    const overallMinimum = settings.overallMinimum || 75;
     const calculationMode = settings.calculationMode || 'overall';
     const [selectedSubject, setSelectedSubject] = useState(null);
 
@@ -63,11 +64,15 @@ export default function Dashboard() {
     const stats = useMemo(() => {
         let globalPresent = 0;
         let globalTotal = 0;
-        let globalTheoryPresent = 0;
-        let globalTheoryTotal = 0;
-        let globalPracticalPresent = 0;
-        let globalPracticalTotal = 0;
         let unmarkedCount = 0;
+
+        // Per-subject percentage collectors for averaging
+        const perSubjectTheoryPcts = [];
+        const perSubjectPracticalPcts = [];
+        const perSubjectTheorySafeBunks = [];
+        const perSubjectPracticalSafeBunks = [];
+        const perSubjectTheoryRecovery = [];
+        const perSubjectPracticalRecovery = [];
 
         const today = new Date();
         today.setHours(0, 0, 0, 0);
@@ -102,14 +107,10 @@ export default function Dashboard() {
                 if (s.theory) {
                     subTheory.p += s.theory.present;
                     subTheory.t += s.theory.total;
-                    globalTheoryPresent += s.theory.present;
-                    globalTheoryTotal += s.theory.total;
                 }
                 if (s.practical) {
                     subPractical.p += s.practical.present;
                     subPractical.t += s.practical.total;
-                    globalPracticalPresent += s.practical.present;
-                    globalPracticalTotal += s.practical.total;
                 }
             });
 
@@ -138,6 +139,18 @@ export default function Dashboard() {
             // 🔮 Future trajectory for this subject (shared for both parts)
             const combinedPercent = subTotal === 0 ? 0 : Math.round((subPresent / subTotal) * 100);
             const future = getFutureInfo(name, subPresent, subTotal);
+
+            // Collect per-subject percentages for global averaging
+            if (subTheory.t > 0) {
+                perSubjectTheoryPcts.push(theoryPct);
+                perSubjectTheorySafeBunks.push(theorySafeBunks);
+                perSubjectTheoryRecovery.push(theoryRecovery);
+            }
+            if (subPractical.t > 0) {
+                perSubjectPracticalPcts.push(practicalPct);
+                perSubjectPracticalSafeBunks.push(practicalSafeBunks);
+                perSubjectPracticalRecovery.push(practicalRecovery);
+            }
 
             // Separate card for Theory
             if (subTheory.t > 0) {
@@ -180,25 +193,34 @@ export default function Dashboard() {
             }
         });
 
-        // Global theory/practical percentages
+        // Global theory/practical percentages = average of each subject's individual percentage
         const globalTheoryPercent =
-            globalTheoryTotal === 0 ? 100 : Math.round((globalTheoryPresent / globalTheoryTotal) * 100);
+            perSubjectTheoryPcts.length === 0
+                ? 100
+                : Math.round(perSubjectTheoryPcts.reduce((s, v) => s + v, 0) / perSubjectTheoryPcts.length);
         const globalPracticalPercent =
-            globalPracticalTotal === 0 ? 100 : Math.round((globalPracticalPresent / globalPracticalTotal) * 100);
+            perSubjectPracticalPcts.length === 0
+                ? 100
+                : Math.round(perSubjectPracticalPcts.reduce((s, v) => s + v, 0) / perSubjectPracticalPcts.length);
 
-        // Overall attendance should be the average of theory and practical
+        // Overall attendance = average of theory avg and practical avg
         const percentParts = [];
-        if (globalTheoryTotal > 0) percentParts.push(globalTheoryPercent);
-        if (globalPracticalTotal > 0) percentParts.push(globalPracticalPercent);
+        if (perSubjectTheoryPcts.length > 0) percentParts.push(globalTheoryPercent);
+        if (perSubjectPracticalPcts.length > 0) percentParts.push(globalPracticalPercent);
         const globalPercent =
             percentParts.length === 0
                 ? 100
                 : Math.round(percentParts.reduce((sum, v) => sum + v, 0) / percentParts.length);
 
-        // Safe bunks / recovery are still based on combined counts against the main threshold
-        const globalTarget = (minTheory || 75) / 100;
-        const globalSafeBunks = calculateSafeBunks(globalPresent, globalTotal, globalTarget);
-        const globalRecovery = calculateRecoveryClasses(globalPresent, globalTotal, globalTarget);
+        // Safe bunks = sum of each subject's safe bunks (total bunkable across subjects)
+        const globalTheorySafeBunks = perSubjectTheorySafeBunks.reduce((s, v) => s + v, 0);
+        const globalPracticalSafeBunks = perSubjectPracticalSafeBunks.reduce((s, v) => s + v, 0);
+        const globalSafeBunks = globalTheorySafeBunks + globalPracticalSafeBunks;
+
+        // Recovery = sum of each subject's recovery needed
+        const globalTheoryRecovery = perSubjectTheoryRecovery.reduce((s, v) => s + v, 0);
+        const globalPracticalRecovery = perSubjectPracticalRecovery.reduce((s, v) => s + v, 0);
+        const globalRecovery = globalTheoryRecovery + globalPracticalRecovery;
 
         return {
             cards,
@@ -208,18 +230,18 @@ export default function Dashboard() {
             globalSafeBunks,
             globalRecovery,
             theory: {
-                present: globalTheoryPresent,
-                total: globalTheoryTotal,
                 percent: globalTheoryPercent,
+                safeBunks: globalTheorySafeBunks,
+                recovery: globalTheoryRecovery,
             },
             practical: {
-                present: globalPracticalPresent,
-                total: globalPracticalTotal,
                 percent: globalPracticalPercent,
+                safeBunks: globalPracticalSafeBunks,
+                recovery: globalPracticalRecovery,
             },
             unmarkedCount,
         };
-    }, [subjects, semesterDays, getSubjectStats, minTheory, minPractical, getFutureInfo]);
+    }, [subjects, semesterDays, getSubjectStats, minTheory, minPractical, overallMinimum, getFutureInfo]);
 
     const getTodaySlots = (instances) => {
         const todayKeyLocal = dateKey(new Date());
@@ -234,7 +256,7 @@ export default function Dashboard() {
             const owningInstance = instances.find(inst => inst.name === name);
             if (!owningInstance) return;
 
-            const logKey = `${name}#${l.isPractical ? 'P' : 'T'}`;
+            const logKey = l.logKey || `${name}#${l.isPractical ? 'P' : 'T'}`;
             slots.push({
                 subjectId: owningInstance.id,
                 subjectName: name,
@@ -307,36 +329,62 @@ export default function Dashboard() {
                 <p className="text-[11px] text-blue-100 mb-3">
                     {calculationMode === 'individual'
                         ? 'Rule: Theory and Practical must each meet their own minimum.'
-                        : 'Rule: Theory and Practical are combined as an overall average.'}
+                        : `Rule: Theory and Practical are combined as an overall average. Overall minimum: ${overallMinimum}%`}
                 </p>
                 <div className="grid grid-cols-3 gap-3">
                     <div className="bg-white/10 backdrop-blur-sm rounded-lg p-3 border border-white/20">
                         <p className="text-xs text-blue-100 mb-1">Overall</p>
                         <p className="text-2xl font-bold text-white">{stats.globalPercent}%</p>
-                        <p className="text-xs text-blue-100 mt-1">{stats.globalPresent}/{stats.globalTotal}</p>
                         <p className="text-[11px] text-blue-100 mt-1">
-                            Safe bunks (overall): <span className="font-semibold">{stats.globalSafeBunks}</span>
+                            {calculationMode === 'individual'
+                                ? (stats.globalRecovery > 0
+                                    ? <>Need <span className="font-semibold">{stats.globalRecovery}</span> class{stats.globalRecovery !== 1 ? 'es' : ''}</>
+                                    : <>Safe bunks: <span className="font-semibold">{stats.globalSafeBunks}</span></>)
+                                : (stats.globalPercent >= overallMinimum
+                                    ? <>Safe bunks: <span className="font-semibold">{stats.globalSafeBunks}</span></>
+                                    : <>Need <span className="font-semibold">{stats.globalRecovery}</span> class{stats.globalRecovery !== 1 ? 'es' : ''}</>)}
                         </p>
                     </div>
                     <div className="bg-white/10 backdrop-blur-sm rounded-lg p-3 border border-white/20">
                         <p className="text-xs text-blue-100 mb-1">Theory</p>
                         <p className="text-2xl font-bold text-white">{stats.theory.percent}%</p>
-                        <p className="text-xs text-blue-100 mt-1">{stats.theory.present}/{stats.theory.total}</p>
+                        <p className="text-[11px] text-blue-100 mt-1">
+                            {stats.theory.recovery > 0
+                                ? <>Need <span className="font-semibold">{stats.theory.recovery}</span> class{stats.theory.recovery !== 1 ? 'es' : ''}</>
+                                : <>Safe: <span className="font-semibold">{stats.theory.safeBunks}</span></>}
+                        </p>
                     </div>
                     <div className="bg-white/10 backdrop-blur-sm rounded-lg p-3 border border-white/20">
                         <p className="text-xs text-blue-100 mb-1">Practical</p>
                         <p className="text-2xl font-bold text-white">{stats.practical.percent}%</p>
-                        <p className="text-xs text-blue-100 mt-1">{stats.practical.present}/{stats.practical.total}</p>
+                        <p className="text-[11px] text-blue-100 mt-1">
+                            {stats.practical.recovery > 0
+                                ? <>Need <span className="font-semibold">{stats.practical.recovery}</span> class{stats.practical.recovery !== 1 ? 'es' : ''}</>
+                                : <>Safe: <span className="font-semibold">{stats.practical.safeBunks}</span></>}
+                        </p>
                     </div>
                 </div>
 
                 {/* Show either safe bunks or required classes based on overall status */}
                 <p className="text-[11px] text-blue-100 mt-2">
-                    {stats.globalRecovery > 0 ? (
+                    {calculationMode === 'individual' ? (
+                        stats.globalRecovery > 0 ? (
+                            <>
+                                Need <span className="font-semibold">{stats.globalRecovery}</span> more
+                                {" "}
+                                class{stats.globalRecovery !== 1 ? "es" : ""} overall to reach the minimum.
+                            </>
+                        ) : (
+                            <>
+                                Safe bunks (overall):{" "}
+                                <span className="font-semibold">{stats.globalSafeBunks}</span>
+                            </>
+                        )
+                    ) : stats.globalPercent < overallMinimum ? (
                         <>
                             Need <span className="font-semibold">{stats.globalRecovery}</span> more
                             {" "}
-                            class{stats.globalRecovery !== 1 ? "es" : ""} overall to reach the minimum.
+                            class{stats.globalRecovery !== 1 ? "es" : ""} overall to reach {overallMinimum}%.
                         </>
                     ) : (
                         <>

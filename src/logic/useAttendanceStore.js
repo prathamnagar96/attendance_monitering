@@ -46,6 +46,16 @@ const mapTimetableToEngine = (timetable) => {
     return weekArr;
 };
 
+const preserveHistoricalSemesterDays = (nextDays, previousDays = []) => {
+    const todayKey = dateKey(new Date());
+    const previousByDate = new Map((Array.isArray(previousDays) ? previousDays : []).map((day) => [day?.date, day]));
+
+    return (Array.isArray(nextDays) ? nextDays : []).map((day) => {
+        if (!day?.date || day.date > todayKey) return day;
+        return previousByDate.get(day.date) || day;
+    });
+};
+
 const scheduleNotification = (message) => {
     if ('Notification' in window && Notification.permission === 'granted') {
         new Notification('Attendance Alert', { body: message });
@@ -61,6 +71,7 @@ export const useAttendanceStore = create((set, get) => ({
     settings: {
         minAttendanceTheory: 75,
         minAttendancePractical: 75,
+        overallMinimum: 75,
         semesterStart: '',
         semesterEnd: '',
         holidayDates: [],
@@ -107,6 +118,7 @@ export const useAttendanceStore = create((set, get) => ({
             const currentSettings = settings || {
                 minAttendanceTheory: 75,
                 minAttendancePractical: 75,
+                overallMinimum: 75,
                 holidayDates: [],
                 weekendDays: [0],
                 calculationMode: 'overall',
@@ -119,6 +131,9 @@ export const useAttendanceStore = create((set, get) => ({
             // ensure periodsPerDay always present
             if (currentSettings.periodsPerDay == null) {
                 currentSettings.periodsPerDay = 6;
+            }
+            if (currentSettings.overallMinimum == null) {
+                currentSettings.overallMinimum = 75;
             }
 
             const hasConfig = !!currentSettings.semesterStart;
@@ -153,7 +168,8 @@ export const useAttendanceStore = create((set, get) => ({
 
     getTimetable: () => get().timetable,
 
-    recalculateAttendance: async () => {
+    recalculateAttendance: async (options = {}) => {
+        const { preserveHistoricalDays = false, previousSemesterDays = [] } = options;
         const { settings, timetable, history, notes, subjects } = get();
         if (!settings.semesterStart || !settings.semesterEnd) return;
 
@@ -178,18 +194,30 @@ export const useAttendanceStore = create((set, get) => ({
             }
         );
 
-        semesterDays.forEach(day => {
+        const preservedDays = preserveHistoricalDays
+            ? preserveHistoricalSemesterDays(semesterDays, previousSemesterDays)
+            : semesterDays;
+
+        preservedDays.forEach(day => {
             const dKey = dateKey(day.date);
             const dayLog = history[dKey];
 
             day.lectures.forEach(lec => {
                 const subName = typeof lec.subject === 'string' ? lec.subject : lec.subject.name;
-                const logKey = `${subName}#${lec.isPractical ? 'P' : 'T'}`;
+                // Use pre-assigned unique logKey from generateSemester
+                const logKey = lec.logKey || `${subName}#${lec.isPractical ? 'P' : 'T'}`;
+                const baseKey = `${subName}#${lec.isPractical ? 'P' : 'T'}`;
 
                 if (dayLog) {
-                    const stored = dayLog[logKey] ?? dayLog[subName]; // fallback for old data
-                    if (stored) {
-                        lec.status = stored;
+                    const stored = dayLog[logKey] ?? dayLog[baseKey] ?? dayLog[subName]; // fallback for old data
+                    // Only use baseKey fallback if this is the first occurrence (logKey === baseKey)
+                    if (logKey === baseKey) {
+                        const found = dayLog[logKey] ?? dayLog[subName];
+                        if (found) lec.status = found;
+                    } else {
+                        // Duplicate slot – only use its unique key
+                        const found = dayLog[logKey];
+                        if (found) lec.status = found;
                     }
                 }
 
@@ -197,13 +225,13 @@ export const useAttendanceStore = create((set, get) => ({
                 const noteKeyOld = `${dKey}-${subName}`;
                 if (notes[noteKeyNew]) {
                     lec.note = notes[noteKeyNew];
-                } else if (notes[noteKeyOld]) {
+                } else if (logKey === baseKey && notes[noteKeyOld]) {
                     lec.note = notes[noteKeyOld];
                 }
             });
         });
 
-        set({ semesterDays });
+        set({ semesterDays: preservedDays });
     },
 
     getSubjectStats: (subjectId) => {
@@ -214,6 +242,7 @@ export const useAttendanceStore = create((set, get) => ({
             subjectName: sub.name,
             minAttendanceTheory: settings.minAttendanceTheory,
             minAttendancePractical: settings.minAttendancePractical,
+            overallMinimum: settings.overallMinimum,
             simulationOverrides: isSimulationMode ? simulationChanges : null
         });
     },
@@ -286,9 +315,10 @@ export const useAttendanceStore = create((set, get) => ({
             }
         }
 
+        const previousSemesterDays = get().semesterDays;
         set({ settings: merged, isConfigured: !!merged.semesterStart });
         if (db) await db.put(STORES.SETTINGS, merged, 'userSettings');
-        await get().recalculateAttendance();
+        await get().recalculateAttendance({ preserveHistoricalDays: true, previousSemesterDays });
     },
 
     addExtraClass: async (extraClass) => {
@@ -363,11 +393,26 @@ export const useAttendanceStore = create((set, get) => ({
         if (db) await db.put(STORES.SUBJECTS, newSub);
     },
 
+    removeSubject: async (subjectId) => {
+        const { subjects, db } = get();
+        const newSubjects = subjects.filter(s => s.id !== subjectId);
+        set({ subjects: newSubjects });
+        if (db) {
+            try {
+                await db.delete(STORES.SUBJECTS, subjectId);
+            } catch (e) {
+                console.error('Failed to delete subject from DB:', e);
+            }
+        }
+        await get().recalculateAttendance();
+    },
+
     saveTimetable: async (newTimetable) => {
         const { db } = get();
+        const previousSemesterDays = get().semesterDays;
         set({ timetable: newTimetable });
         if (db) await db.put(STORES.TIMETABLE, newTimetable, 'weeklySchedule');
-        await get().recalculateAttendance();
+        await get().recalculateAttendance({ preserveHistoricalDays: true, previousSemesterDays });
     },
 
     // CRITICAL FIX: Batch semester initialization helper
@@ -407,6 +452,7 @@ export const useAttendanceStore = create((set, get) => ({
                     semesterEnd: endDate,
                     minAttendanceTheory: 75,
                     minAttendancePractical: 75,
+                    overallMinimum: 75,
                 },
             });
 
@@ -448,6 +494,7 @@ export const useAttendanceStore = create((set, get) => ({
                 settings: {
                     minAttendanceTheory: 75,
                     minAttendancePractical: 75,
+                    overallMinimum: 75,
                     holidayDates: [],
                     weekendDays: [0],
                     calculationMode: 'overall',
@@ -497,6 +544,8 @@ export const useAttendanceStore = create((set, get) => ({
             const present = stats.present || 0;
             const overallPercent = total === 0 ? 100 : Math.round((present / total) * 100);
 
+            const overallMinimum = settings.overallMinimum || 75;
+
             const theoryTotal = stats.theory?.total || 0;
             const theoryPresent = stats.theory?.present || 0;
             const theoryPercent =
@@ -521,7 +570,7 @@ export const useAttendanceStore = create((set, get) => ({
                 }
             } else {
                 // Overall mode: theory + practical combined for final rule
-                if (total > 0 && overallPercent < minTheory && overallPercent >= minTheory - 5) {
+                if (total > 0 && overallPercent < overallMinimum && overallPercent >= overallMinimum - 5) {
                     scheduleNotification(
                         `Warning: ${sub.name} overall attendance is at ${overallPercent}%. Attend the next class!`
                     );

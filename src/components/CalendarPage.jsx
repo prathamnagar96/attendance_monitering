@@ -268,7 +268,7 @@ export default function CalendarPage() {
                     typeof lec.subject === "string" ? lec.subject : lec.subject?.name;
                 if (!subjectName) return;
 
-                const logKey = `${subjectName}#${lec.isPractical ? 'P' : 'T'}`;
+                const logKey = lec.logKey || `${subjectName}#${lec.isPractical ? 'P' : 'T'}`;
                 const st = effectiveStatusFor(dateStr, logKey, lec.status);
                 total++;
 
@@ -375,7 +375,7 @@ export default function CalendarPage() {
             lectures.forEach((lec) => {
                 const subjectName = typeof lec.subject === "string" ? lec.subject : lec.subject?.name;
                 if (!subjectName) return;
-                const logKey = `${subjectName}#${lec.isPractical ? 'P' : 'T'}`;
+                const logKey = lec.logKey || `${subjectName}#${lec.isPractical ? 'P' : 'T'}`;
                 toggleSimulation(selectedDate, logKey, status);
             });
             showToast(`Preview: all lectures marked ${status}.`);
@@ -386,7 +386,7 @@ export default function CalendarPage() {
             for (const lec of lectures) {
                 const subjectName = typeof lec.subject === "string" ? lec.subject : lec.subject?.name;
                 if (!subjectName) continue;
-                const logKey = `${subjectName}#${lec.isPractical ? 'P' : 'T'}`;
+                const logKey = lec.logKey || `${subjectName}#${lec.isPractical ? 'P' : 'T'}`;
                 const noteKey = `${selectedDate}-${logKey}`;
                 const existingNote = notes?.[noteKey] || "";
                 await markAttendance(selectedDate, logKey, status, existingNote);
@@ -760,7 +760,7 @@ export default function CalendarPage() {
                                                 typeof lec.subject === "string" ? lec.subject : lec.subject?.name;
                                             if (!subjectName) return null;
 
-                                            const logKey = `${subjectName}#${lec.isPractical ? 'P' : 'T'}`;
+                                            const logKey = lec.logKey || `${subjectName}#${lec.isPractical ? 'P' : 'T'}`;
                                             const eff = effectiveStatusFor(selectedDate, logKey, lec.status);
                                             const noteKey = `${selectedDate}-${logKey}`;
                                             const currentNote = notes?.[noteKey] || "";
@@ -858,7 +858,17 @@ export default function CalendarPage() {
                                         <div className="flex flex-col sm:flex-row gap-2">
                                             <select
                                                 value={extraSubjectId}
-                                                onChange={(e) => setExtraSubjectId(e.target.value)}
+                                                onChange={(e) => {
+                                                    setExtraSubjectId(e.target.value);
+                                                    // Auto-select valid type for this subject
+                                                    if (e.target.value) {
+                                                        const sub = subjects.find(s => s.id === e.target.value);
+                                                        if (sub) {
+                                                            if (sub.type === 'practical') setExtraType('Practical');
+                                                            else setExtraType('Theory');
+                                                        }
+                                                    }
+                                                }}
                                                 className="flex-1 px-3 py-2 text-sm bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                                             >
                                                 <option value="">Select subject</option>
@@ -873,8 +883,14 @@ export default function CalendarPage() {
                                                 onChange={(e) => setExtraType(e.target.value)}
                                                 className="w-28 px-3 py-2 text-sm bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                                             >
-                                                <option value="Theory">Theory</option>
-                                                <option value="Practical">Practical</option>
+                                                {(() => {
+                                                    const sub = subjects.find(s => s.id === extraSubjectId);
+                                                    const subType = sub?.type || 'theory';
+                                                    // Only show type options valid for this subject
+                                                    if (subType === 'practical') return <option value="Practical">Practical</option>;
+                                                    if (subType === 'both') return (<><option value="Theory">Theory</option><option value="Practical">Practical</option></>);
+                                                    return <option value="Theory">Theory</option>;
+                                                })()}
                                             </select>
                                             <Button
                                                 onClick={handleAddExtraLecture}

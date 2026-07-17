@@ -21,7 +21,7 @@ import Button from "./ui/Button";
 
 export default function SettingsPage() {
     const navigate = useNavigate();
-    const { settings, saveSettings, resetData } = useAttendanceStore();
+    const { settings, saveSettings, resetData, subjects, removeSubject } = useAttendanceStore();
     const scrollRef = useRef(null);
 
 
@@ -30,6 +30,7 @@ export default function SettingsPage() {
         holidayDates: Array.isArray(settings?.holidayDates) ? settings.holidayDates : [],
         theme: settings?.theme || (document.documentElement.classList.contains("dark") ? "dark" : "light"),
         periodsPerDay: settings?.periodsPerDay ?? 6,   // NEW: default for local state
+        overallMinimum: settings?.overallMinimum ?? 75,
         calculationMode: settings?.calculationMode || "overall",
     }));
 
@@ -65,6 +66,7 @@ export default function SettingsPage() {
                 settings?.theme ||
                 (document.documentElement.classList.contains("dark") ? "dark" : "light"),
             periodsPerDay: settings?.periodsPerDay ?? 6, // ✅ keep periodsPerDay in sync
+            overallMinimum: settings?.overallMinimum ?? 75,
             calculationMode: settings?.calculationMode || "overall",
         });
     }, [settings]);
@@ -354,6 +356,30 @@ export default function SettingsPage() {
                                 />
                             </div>
 
+                            {((localSettings.calculationMode || "overall") === "overall") && (
+                                <div>
+                                    <label
+                                        htmlFor="overall-slider"
+                                        className="flex w-full text-sm font-semibold mb-3 items-center justify-between"
+                                    >
+                                        Overall Minimum: {localSettings.overallMinimum ?? 75}%
+                                    </label>
+                                    <input
+                                        id="overall-slider"
+                                        type="range"
+                                        min="25"
+                                        max="100"
+                                        step="1"
+                                        value={localSettings.overallMinimum ?? 75}
+                                        onChange={(e) => handleChange("overallMinimum", parseInt(e.target.value, 10))}
+                                        className="w-full h-2 bg-gray-200 rounded-lg cursor-pointer appearance-none slider"
+                                        style={{
+                                            background: `linear-gradient(to right, #3b82f6 0%, #3b82f6 ${(localSettings.overallMinimum ?? 75)}%, #e5e7eb ${(localSettings.overallMinimum ?? 75)}%, #e5e7eb 100%)`
+                                        }}
+                                    />
+                                </div>
+                            )}
+
                             {/* NEW: Lectures per day slider */}
                             <div>
                                 <label
@@ -389,8 +415,8 @@ export default function SettingsPage() {
                                         type="button"
                                         onClick={() => handleChange("calculationMode", "overall")}
                                         className={`text-xs font-medium px-3 py-2 rounded-lg border transition-colors ${(localSettings.calculationMode || "overall") === "overall"
-                                                ? "bg-blue-600 text-white border-blue-600"
-                                                : "bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 border-gray-300 dark:border-gray-700"
+                                            ? "bg-blue-600 text-white border-blue-600"
+                                            : "bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 border-gray-300 dark:border-gray-700"
                                             }`}
                                     >
                                         Overall (avg)
@@ -399,8 +425,8 @@ export default function SettingsPage() {
                                         type="button"
                                         onClick={() => handleChange("calculationMode", "individual")}
                                         className={`text-xs font-medium px-3 py-2 rounded-lg border transition-colors ${(localSettings.calculationMode || "overall") === "individual"
-                                                ? "bg-blue-600 text-white border-blue-600"
-                                                : "bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 border-gray-300 dark:border-gray-700"
+                                            ? "bg-blue-600 text-white border-blue-600"
+                                            : "bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 border-gray-300 dark:border-gray-700"
                                             }`}
                                     >
                                         Individual
@@ -413,6 +439,50 @@ export default function SettingsPage() {
                                 </p>
                             </div>
                         </div>
+                    </section>
+
+
+                    {/* Holidays */}
+                    <section className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm border border-gray-200/50 dark:border-gray-800/50 rounded-xl p-6 shadow-sm">
+                        <div className="flex items-center justify-between mb-6">
+                            <h2 className="text-lg font-bold flex items-center gap-2">
+                                <Calendar size={20} className="text-purple-600 dark:text-purple-400" />
+                                Manage Subjects
+                            </h2>
+                        </div>
+                        {(!subjects || subjects.length === 0) ? (
+                            <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">
+                                No subjects added yet. Set up your timetable first.
+                            </p>
+                        ) : (
+                            <div className="space-y-2 max-h-72 overflow-y-auto">
+                                {subjects.map((sub) => (
+                                    <div
+                                        key={sub.id}
+                                        className="flex items-center gap-3 bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-700 px-4 py-3 rounded-xl border border-gray-200/50 dark:border-gray-700/50 group"
+                                    >
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-sm font-semibold truncate">{sub.name}</p>
+                                            <p className="text-xs text-gray-500 dark:text-gray-400">
+                                                {sub.type === 'both' ? 'Theory + Practical' : sub.type === 'practical' ? 'Practical only' : 'Theory only'}
+                                                {sub.isStrict ? ' • Strict' : ''}
+                                            </p>
+                                        </div>
+                                        <button
+                                            onClick={() => {
+                                                if (confirm(`Remove "${sub.name}"? This won't delete past attendance records, but the subject will no longer appear in stats.`)) {
+                                                    removeSubject(sub.id);
+                                                }
+                                            }}
+                                            className="p-1.5 text-red-500 hover:bg-red-100 hover:text-red-600 dark:hover:bg-red-900/30 rounded-lg transition-all duration-200 opacity-0 group-hover:opacity-100"
+                                            aria-label={`Remove ${sub.name}`}
+                                        >
+                                            <Trash2 size={16} />
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
                     </section>
 
 
