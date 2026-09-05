@@ -7,7 +7,8 @@ import { useAttendanceStore } from "./logic/useAttendanceStore";
 import Dashboard from "./components/Dashboard";
 import CalendarPage from "./components/CalendarPage";
 import SettingsPage from "./components/SettingsPage";
-import OCRScanner from "./components/OCRScanner";
+import SgpaCalculator from "./components/SgpaCalculator";
+
 import TimetableEditor from "./components/TimetableEditor";
 import Onboarding from "./components/Onboarding";
 import AppShell from "./components/layout/AppShell";
@@ -66,8 +67,9 @@ export default function App() {
                         }
                     />
                     <Route path="calendar" element={<CalendarPage />} />
-                    <Route path="scan" element={<OCRScanner />} />
+                    
                     <Route path="settings" element={<SettingsPage />} />
+                    <Route path="sgpa" element={<SgpaCalculator />} />
                     <Route path="editor" element={<TimetableEditor />} />
                     <Route path="onboarding" element={<Onboarding />} />
                 </Route>

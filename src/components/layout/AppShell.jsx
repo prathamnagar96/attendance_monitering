@@ -1,6 +1,6 @@
 import React from "react";
 import { Outlet, NavLink, useLocation } from "react-router-dom";
-import { LayoutDashboard, Calendar, Settings, ScanLine } from "lucide-react";
+import { LayoutDashboard, Calendar, Settings, Calculator } from "lucide-react";
 import { useAttendanceStore } from "../../logic/useAttendanceStore";
 
 export default function AppShell() {
@@ -8,7 +8,6 @@ export default function AppShell() {
     const { isConfigured } = useAttendanceStore();
     const hideNav =
         location.pathname.startsWith("/onboarding") ||
-        location.pathname.startsWith("/scan") || // hide nav on full-screen camera
         !isConfigured;
 
     return (
@@ -23,7 +22,7 @@ function BottomNav() {
     const navItems = [
         { path: "/", icon: LayoutDashboard, label: "Dashboard" },
         { path: "/calendar", icon: Calendar, label: "Calendar" },
-        { path: "/scan", icon: ScanLine, label: "Scan" },
+        { path: "/sgpa", icon: Calculator, label: "SGPA" },
         { path: "/settings", icon: Settings, label: "Settings" },
     ];
 

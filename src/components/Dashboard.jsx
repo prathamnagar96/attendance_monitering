@@ -64,6 +64,10 @@ export default function Dashboard() {
     const stats = useMemo(() => {
         let globalPresent = 0;
         let globalTotal = 0;
+        let globalTheoryPresent = 0;
+        let globalTheoryTotal = 0;
+        let globalPracticalPresent = 0;
+        let globalPracticalTotal = 0;
         let unmarkedCount = 0;
 
         // Per-subject percentage collectors for averaging
@@ -71,8 +75,6 @@ export default function Dashboard() {
         const perSubjectPracticalPcts = [];
         const perSubjectTheorySafeBunks = [];
         const perSubjectPracticalSafeBunks = [];
-        const perSubjectTheoryRecovery = [];
-        const perSubjectPracticalRecovery = [];
 
         const today = new Date();
         today.setHours(0, 0, 0, 0);
@@ -116,6 +118,10 @@ export default function Dashboard() {
 
             globalPresent += subPresent;
             globalTotal += subTotal;
+            globalTheoryPresent += subTheory.p;
+            globalTheoryTotal += subTheory.t;
+            globalPracticalPresent += subPractical.p;
+            globalPracticalTotal += subPractical.t;
 
             const isStrictSubject = instances.some(s => s.isStrict);
 
@@ -144,12 +150,10 @@ export default function Dashboard() {
             if (subTheory.t > 0) {
                 perSubjectTheoryPcts.push(theoryPct);
                 perSubjectTheorySafeBunks.push(theorySafeBunks);
-                perSubjectTheoryRecovery.push(theoryRecovery);
             }
             if (subPractical.t > 0) {
                 perSubjectPracticalPcts.push(practicalPct);
                 perSubjectPracticalSafeBunks.push(practicalSafeBunks);
-                perSubjectPracticalRecovery.push(practicalRecovery);
             }
 
             // Separate card for Theory
@@ -217,10 +221,18 @@ export default function Dashboard() {
         const globalPracticalSafeBunks = perSubjectPracticalSafeBunks.reduce((s, v) => s + v, 0);
         const globalSafeBunks = globalTheorySafeBunks + globalPracticalSafeBunks;
 
-        // Recovery = sum of each subject's recovery needed
-        const globalTheoryRecovery = perSubjectTheoryRecovery.reduce((s, v) => s + v, 0);
-        const globalPracticalRecovery = perSubjectPracticalRecovery.reduce((s, v) => s + v, 0);
-        const globalRecovery = globalTheoryRecovery + globalPracticalRecovery;
+        // Overall recovery uses the combined theory + practical class count. This means
+        // missing a practical lowers the same balanced overall pool as missing a lecture.
+        const globalRecovery = globalPercent >= overallMinimum ? 0 : calculateRecoveryClasses(globalPresent, globalTotal, overallMinimum / 100);
+
+        // Theory/practical recovery: calculated from global totals, only if overall is below minimum
+        // When overall is good, show safe bunks; when below, show recovery based on theory/practical averages
+        const theoryRecovery = globalPercent >= overallMinimum ? 0 : (globalTheoryPercent < minTheory
+            ? calculateRecoveryClasses(globalTheoryPresent, globalTheoryTotal, minTheory / 100)
+            : 0);
+        const practicalRecovery = globalPercent >= overallMinimum ? 0 : (globalPracticalPercent < minPractical
+            ? calculateRecoveryClasses(globalPracticalPresent, globalPracticalTotal, minPractical / 100)
+            : 0);
 
         return {
             cards,
@@ -232,12 +244,12 @@ export default function Dashboard() {
             theory: {
                 percent: globalTheoryPercent,
                 safeBunks: globalTheorySafeBunks,
-                recovery: globalTheoryRecovery,
+                recovery: theoryRecovery,
             },
             practical: {
                 percent: globalPracticalPercent,
                 safeBunks: globalPracticalSafeBunks,
-                recovery: globalPracticalRecovery,
+                recovery: practicalRecovery,
             },
             unmarkedCount,
         };
@@ -336,13 +348,9 @@ export default function Dashboard() {
                         <p className="text-xs text-blue-100 mb-1">Overall</p>
                         <p className="text-2xl font-bold text-white">{stats.globalPercent}%</p>
                         <p className="text-[11px] text-blue-100 mt-1">
-                            {calculationMode === 'individual'
-                                ? (stats.globalRecovery > 0
-                                    ? <>Need <span className="font-semibold">{stats.globalRecovery}</span> class{stats.globalRecovery !== 1 ? 'es' : ''}</>
-                                    : <>Safe bunks: <span className="font-semibold">{stats.globalSafeBunks}</span></>)
-                                : (stats.globalPercent >= overallMinimum
-                                    ? <>Safe bunks: <span className="font-semibold">{stats.globalSafeBunks}</span></>
-                                    : <>Need <span className="font-semibold">{stats.globalRecovery}</span> class{stats.globalRecovery !== 1 ? 'es' : ''}</>)}
+                            {stats.globalPercent >= overallMinimum
+                                ? <>Safe combined classes: <span className="font-semibold">{stats.globalSafeBunks}</span></>
+                                : <>Attend <span className="font-semibold">{stats.globalRecovery}</span> combined class{stats.globalRecovery !== 1 ? 'es' : ''}</>}
                         </p>
                     </div>
                     <div className="bg-white/10 backdrop-blur-sm rounded-lg p-3 border border-white/20">
@@ -350,8 +358,8 @@ export default function Dashboard() {
                         <p className="text-2xl font-bold text-white">{stats.theory.percent}%</p>
                         <p className="text-[11px] text-blue-100 mt-1">
                             {stats.theory.recovery > 0
-                                ? <>Need <span className="font-semibold">{stats.theory.recovery}</span> class{stats.theory.recovery !== 1 ? 'es' : ''}</>
-                                : <>Safe: <span className="font-semibold">{stats.theory.safeBunks}</span></>}
+                                ? <>Attend <span className="font-semibold">{stats.theory.recovery}</span> theory lecture{stats.theory.recovery !== 1 ? 's' : ''}</>
+                                : <>Safe theory bunks: <span className="font-semibold">{stats.theory.safeBunks}</span></>}
                         </p>
                     </div>
                     <div className="bg-white/10 backdrop-blur-sm rounded-lg p-3 border border-white/20">
@@ -359,39 +367,28 @@ export default function Dashboard() {
                         <p className="text-2xl font-bold text-white">{stats.practical.percent}%</p>
                         <p className="text-[11px] text-blue-100 mt-1">
                             {stats.practical.recovery > 0
-                                ? <>Need <span className="font-semibold">{stats.practical.recovery}</span> class{stats.practical.recovery !== 1 ? 'es' : ''}</>
-                                : <>Safe: <span className="font-semibold">{stats.practical.safeBunks}</span></>}
+                                ? <>Attend <span className="font-semibold">{stats.practical.recovery}</span> practical class{stats.practical.recovery !== 1 ? 'es' : ''}</>
+                                : <>Safe practical bunks: <span className="font-semibold">{stats.practical.safeBunks}</span></>}
                         </p>
                     </div>
                 </div>
 
                 {/* Show either safe bunks or required classes based on overall status */}
                 <p className="text-[11px] text-blue-100 mt-2">
-                    {calculationMode === 'individual' ? (
-                        stats.globalRecovery > 0 ? (
+                    {stats.globalPercent >= overallMinimum
+                        ? (
                             <>
-                                Need <span className="font-semibold">{stats.globalRecovery}</span> more
-                                {" "}
-                                class{stats.globalRecovery !== 1 ? "es" : ""} overall to reach the minimum.
-                            </>
-                        ) : (
-                            <>
-                                Safe bunks (overall):{" "}
+                                Safe combined classes (theory + practical):{" "}
                                 <span className="font-semibold">{stats.globalSafeBunks}</span>
                             </>
                         )
-                    ) : stats.globalPercent < overallMinimum ? (
-                        <>
-                            Need <span className="font-semibold">{stats.globalRecovery}</span> more
-                            {" "}
-                            class{stats.globalRecovery !== 1 ? "es" : ""} overall to reach {overallMinimum}%.
-                        </>
-                    ) : (
-                        <>
-                            Safe bunks (overall):{" "}
-                            <span className="font-semibold">{stats.globalSafeBunks}</span>
-                        </>
-                    )}
+                        : (
+                            <>
+                                Attend <span className="font-semibold">{stats.globalRecovery}</span> more
+                                {" "}
+                                combined class{stats.globalRecovery !== 1 ? "es" : ""} (theory + practical) to reach {overallMinimum}%.
+                            </>
+                        )}
                 </p>
                 {stats.unmarkedCount > 0 && (
                     <div className="mt-4 bg-yellow-500/20 backdrop-blur-sm border border-yellow-400/30 rounded-lg p-3 flex items-start gap-2">

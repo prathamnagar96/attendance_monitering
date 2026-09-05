@@ -135,35 +135,6 @@ export default function TimetableEditor() {
 
         const stored = getTimetable?.();
         const next = buildEmptyTimetable(periodsPerDay);
-        const ocrData = location.state?.guessedGrid;
-
-        // OCR priority
-        if (ocrData && Array.isArray(ocrData) && ocrData.length > 1) {
-            for (let i = 1; i < ocrData.length; i++) {
-                const row = ocrData[i];
-                if (!Array.isArray(row) || row.length === 0) continue;
-
-                const dayLabel = String(row[0] ?? "").toUpperCase();
-                const dayKey = DAYS.find(d => dayLabel.startsWith(d.toUpperCase()));
-                if (!dayKey) continue;
-
-                for (let j = 0; j < periodsPerDay; j++) {
-                    const name = cleanSubjectName(row[j + 1]);
-                    if (!name) continue;
-
-                    const upper = name.toUpperCase();
-                    next[dayKey][j] = {
-                        name,
-                        isStrict: false,
-                        isPractical: upper.includes("LAB") || upper.includes("PRACT"),
-                    };
-                }
-            }
-            setTimetable(next);
-            setIsDirty(true);
-            setLoading(false);
-            return;
-        }
 
         // Stored timetable
         if (stored) {

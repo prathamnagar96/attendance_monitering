@@ -275,25 +275,35 @@ export function computeAttendanceStats(days, opts = {}) {
     const practicalTarget = minAttendancePractical / 100;
     const overallTarget = overallMinimum / 100;
 
+    // Safe bunks and recovery for overall (using total present/total across both)
+    const overallSafeBunks = calculateSafeBunks(present, total, overallTarget);
+    const overallRecovery = calculateRecoveryClasses(present, total, overallTarget);
+
+    // Separate safe bunks for theory and practical
+    const theorySafeBunks = calculateSafeBunks(theory.present, theory.total, theoryTarget);
+    const theoryRecovery = calculateRecoveryClasses(theory.present, theory.total, theoryTarget);
+    const practicalSafeBunks = calculateSafeBunks(practical.present, practical.total, practicalTarget);
+    const practicalRecovery = calculateRecoveryClasses(practical.present, practical.total, practicalTarget);
+
     return {
         present,
         total,
         councilDuty,
         attendancePercent,
         isStrict,
-        overallSafeBunks: calculateSafeBunks(present, total, overallTarget),
-        overallRecovery: calculateRecoveryClasses(present, total, overallTarget),
+        overallSafeBunks,
+        overallRecovery,
         theory: {
             ...theory,
             percent: theoryPercent,
-            safeBunks: calculateSafeBunks(theory.present, theory.total, theoryTarget),
-            recoveryClasses: calculateRecoveryClasses(theory.present, theory.total, theoryTarget)
+            safeBunks: theorySafeBunks,
+            recoveryClasses: theoryRecovery
         },
         practical: {
             ...practical,
             percent: practicalPercent,
-            safeBunks: calculateSafeBunks(practical.present, practical.total, practicalTarget),
-            recoveryClasses: calculateRecoveryClasses(practical.present, practical.total, practicalTarget)
+            safeBunks: practicalSafeBunks,
+            recoveryClasses: practicalRecovery
         },
         isTheorySafe: theoryPercent >= minAttendanceTheory,
         isPracticalSafe: practicalPercent >= minAttendancePractical

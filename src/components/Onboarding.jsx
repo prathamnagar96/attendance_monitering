@@ -357,7 +357,7 @@ export default function Onboarding() {
                         <div className="space-y-4 mb-8">
                             {[
                                 { id: "editor", title: "Timetable Editor", desc: "Arrange subjects in time slots", icon: Grid3X3, color: "blue" },
-                                { id: "scan", title: "Scan Photo", desc: "Upload timetable image (OCR)", icon: Sparkles, color: "purple" },
+                                ,
                                 { id: "dashboard", title: "Skip Setup", desc: "Start tracking immediately", icon: Shield, color: "emerald" }
                             ].map(({ id, title, desc, icon: Icon, color }) => {
                                 const palette = step3ColorClasses[color];
